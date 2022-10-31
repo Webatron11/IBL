@@ -1,43 +1,37 @@
 // using System.Collections;
 // using System.Collections.Generic;
+
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
+using NmeaParser;
+using TMPro;
 
-public class Gps : MonoBehaviour
-{
-    public TcpClient Client;
-    // Start is called before the first frame update
+public class Gps : MonoBehaviour {
+    private TcpClient connect = new TcpClient();
+    public TMP_Text altText;
+    
     void Start() {
         Debug.Log("Started");
-        var ipEndPoint = new IPEndPoint(IPAddress.Parse("10.169.134.229"), 6000);
-        using TcpClient client = new();
-        client.Connect(ipEndPoint);
+        IPAddress ip = IPAddress.Parse("192.168.1.127");
+        IPEndPoint endpoint = new IPEndPoint(ip, 6000);
+        connect.Connect(endpoint);
     }
 
     // Update is called once per frame
     void Update() {
-        using NetworkStream stream = Client.GetStream();
-
-        var buffer = new byte[1_024];
-        int received = stream.Read(buffer);
-
-        var message = Encoding.UTF8.GetString(buffer, 0, received);
-        Debug.Log($"Message received: \"{message}\"");
-        
-        /*IPAddress ip = IPAddress.Parse("10.169.176.229");
-        // IPEndPoint ipEndPoint = new IPEndPoint(ip, 6000);
-
-        using TcpClient client = new();
-        await client.ConnectAsync(ip, 6000);
-        await using NetworkStream stream = client.GetStream();
-
-        var buffer = new byte[1_024];
-        int received = await stream.ReadAsync(buffer);
-
-        var message = Encoding.UTF8.GetString(buffer, 0, received);
-        Debug.Log($"Message received: \"{message}\"");*/
+        Stream stream = connect.GetStream();
+        var device = new StreamDevice(stream);
+        device.MessageReceived += device_NmeaMessageReceived;
+        device.OpenAsync();
+    }
+    
+    private void device_NmeaMessageReceived(object sender, NmeaMessageReceivedEventArgs args) {
+        // called when a message is received
+        if(args.Message is NmeaParser.Messages.Gga gga) {
+            Debug.Log($"Your current location is: {gga.Latitude} , {gga.Longitude} at height , {gga.Altitude}");
+            altText.text = gga.Altitude.ToString();
+        }
     }
 }
